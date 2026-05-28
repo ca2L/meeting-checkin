@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>会议签到系统</title>
+<title>会议签到 - 管理后台</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -68,18 +68,11 @@ tbody tr:hover{background:#f8fafc}
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:500}
 .badge-success{background:var(--success-light);color:var(--success)}
 .badge-danger{background:var(--danger-light);color:var(--danger)}
-.badge-warning{background:var(--warning-light);color:var(--warning)}
 
 /* Search */
 .search-box{position:relative;margin-bottom:14px}
 .search-box input{padding-right:40px}
 .search-box .clear-btn{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;line-height:1}
-
-/* QR */
-.qr-container{text-align:center;padding:20px}
-.qr-container canvas{margin:0 auto}
-.qr-tip{color:var(--text-secondary);font-size:13px;margin-top:12px}
-.qr-url{word-break:break-all;color:var(--primary);font-size:13px;margin-top:8px;background:#f8fafc;padding:10px;border-radius:8px}
 
 /* Modal */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
@@ -98,7 +91,6 @@ tbody tr:hover{background:#f8fafc}
 .attendee-item .name{font-size:15px;font-weight:500}
 .attendee-item .detail{font-size:12px;color:var(--text-secondary);margin-top:2px}
 .attendee-item.checked-in{opacity:.6;pointer-events:none}
-.attendee-item.checked-in .check-icon{color:var(--success)}
 
 /* Large screen mode */
 .dashboard-screen{background:#0f172a;color:#e2e8f0;min-height:100vh}
@@ -118,7 +110,10 @@ tbody tr:hover{background:#f8fafc}
 .dashboard-screen .checkin-item .new-badge{font-size:10px;background:#f59e0b;color:#000;padding:2px 6px;border-radius:4px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
-/* Responsive */
+/* Admin header */
+.admin-header{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:12px 16px;text-align:center;font-size:13px;position:sticky;top:0;z-index:99}
+.admin-header a{color:#93c5fd;text-decoration:none}
+
 @media(max-width:480px){
   .tab-nav button{font-size:12px;padding:12px 6px}
   .stats-grid{grid-template-columns:repeat(3,1fr);gap:6px}
@@ -130,20 +125,106 @@ tbody tr:hover{background:#f8fafc}
 </head>
 <body>
 
-<!-- Tab Navigation - 签到者只看签到和大屏 -->
+<div class="admin-header">
+  管理后台 | 签到页面: <a href="./index.html" target="_blank">签到入口</a> | <a href="./qr-display.html" target="_blank">二维码</a>
+</div>
+
+<!-- Tab Navigation -->
 <nav class="tab-nav" id="tabNav">
-  <button data-tab="signin" class="active">签到</button>
+  <button data-tab="admin" class="active">管理</button>
+  <button data-tab="signin">签到</button>
   <button data-tab="dashboard">大屏</button>
 </nav>
 
-<!-- ==================== 签到页面 ==================== -->
-<div class="tab-content active" id="tab-signin">
-  <div class="card" style="text-align:center;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:32px 20px">
-    <h2 style="color:#fff;font-size:24px;margin-bottom:8px">会议签到</h2>
-    <p style="color:rgba(255,255,255,.8);font-size:14px">请在下方选择签到方式</p>
+<!-- ==================== 管理后台 ==================== -->
+<div class="tab-content active" id="tab-admin">
+  <div class="card">
+    <h2>管理后台</h2>
+    <div class="btn-group" style="margin-bottom:16px">
+      <button class="btn btn-primary" id="btnImport">导入参会名单</button>
+      <button class="btn btn-outline" id="btnAddPerson">手动添加</button>
+      <button class="btn btn-success" id="btnExport">导出签到表</button>
+      <button class="btn btn-danger btn-outline" id="btnClear">清空数据</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card blue"><div class="num" id="statTotal">0</div><div class="label">参会总人数</div></div>
+      <div class="stat-card green"><div class="num" id="statChecked">0</div><div class="label">已签到</div></div>
+      <div class="stat-card red"><div class="num" id="statUnchecked">0</div><div class="label">未签到</div></div>
+    </div>
+    <div class="progress-bar"><div class="fill" id="checkinProgress" style="width:0%"></div></div>
+    <p style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:4px">签到率 <span id="checkinRate">0%</span></p>
   </div>
 
-  <!-- 签到方式切换 -->
+  <div class="card">
+    <div class="btn-group" style="margin-bottom:12px">
+      <button class="btn btn-outline btn-sm" id="filterAll" style="background:var(--primary);color:#fff">全部</button>
+      <button class="btn btn-outline btn-sm" id="filterChecked">已签到</button>
+      <button class="btn btn-outline btn-sm" id="filterUnchecked">未签到</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>姓名</th><th>手机号</th><th>单位</th><th>签到时间</th><th>状态</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 导入模态框 -->
+  <div class="modal-overlay hidden" id="importModal">
+    <div class="modal">
+      <h3>导入参会名单</h3>
+      <div class="form-group">
+        <label>粘贴名单（每行一个，格式: 姓名,手机号,单位）</label>
+        <textarea id="importText" placeholder="张三,13800138000,市场部&#10;李四,13900139000,技术部&#10;王五,,行政部"></textarea>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">每行一个参会者，用逗号分隔：姓名,手机号,单位。手机号和单位可省略。</p>
+      <div class="form-group">
+        <label>或上传Excel/CSV文件</label>
+        <input type="file" id="importFile" accept=".csv,.xlsx,.xls">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnConfirmImport">确认导入</button>
+        <button class="btn btn-outline" id="btnCancelImport">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 手动添加模态框 -->
+  <div class="modal-overlay hidden" id="addPersonModal">
+    <div class="modal">
+      <h3>手动添加参会者</h3>
+      <div class="form-group">
+        <label>姓名 *</label>
+        <input type="text" id="addName" placeholder="请输入姓名">
+      </div>
+      <div class="form-group">
+        <label>手机号</label>
+        <input type="tel" id="addPhone" placeholder="请输入手机号">
+      </div>
+      <div class="form-group">
+        <label>单位/部门</label>
+        <input type="text" id="addDept" placeholder="请输入单位或部门">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnConfirmAdd">确认添加</button>
+        <button class="btn btn-outline" id="btnCancelAdd">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 签到页面 ==================== -->
+<div class="tab-content" id="tab-signin">
+  <div class="card" style="text-align:center;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:32px 20px">
+    <h2 style="color:#fff;font-size:24px;margin-bottom:8px">会议签到</h2>
+    <p style="color:rgba(255,255,255,.8);font-size:14px">管理员代签到</p>
+  </div>
+
   <div class="card">
     <div class="btn-group" style="margin-bottom:16px">
       <button class="btn" id="modeSelect" style="flex:1">从名单选择签到</button>
@@ -151,7 +232,6 @@ tbody tr:hover{background:#f8fafc}
       <button class="btn btn-outline" id="modeManual" style="flex:1">手动填写签到</button>
     </div>
 
-    <!-- 模式1: 从名单选择 -->
     <div id="panelSelect">
       <div class="search-box">
         <input type="text" id="searchSelect" placeholder="搜索姓名或手机号..." autocomplete="off">
@@ -161,7 +241,6 @@ tbody tr:hover{background:#f8fafc}
       <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px" id="selectEmpty">暂无参会名单，请先导入</p>
     </div>
 
-    <!-- 模式2: 搜索姓名 -->
     <div id="panelSearch" class="hidden">
       <div class="form-group">
         <label>输入姓名或手机号</label>
@@ -170,7 +249,6 @@ tbody tr:hover{background:#f8fafc}
       <div id="searchResult" style="margin-top:8px"></div>
     </div>
 
-    <!-- 模式3: 手动填写 -->
     <div id="panelManual" class="hidden">
       <div class="form-group">
         <label>姓名 *</label>
@@ -188,7 +266,6 @@ tbody tr:hover{background:#f8fafc}
     </div>
   </div>
 
-  <!-- 签到成功提示 -->
   <div id="signinSuccess" class="card hidden" style="text-align:center;background:var(--success-light)">
     <div style="font-size:48px;margin-bottom:8px">&#10003;</div>
     <h2 style="color:var(--success)">签到成功</h2>
@@ -196,8 +273,6 @@ tbody tr:hover{background:#f8fafc}
     <p style="color:var(--text-muted);font-size:13px" id="signinTime"></p>
   </div>
 </div>
-
-<!-- 管理后台已移至 admin.html -->
 
 <!-- ==================== 签到大屏 ==================== -->
 <div class="tab-content" id="tab-dashboard">
@@ -222,10 +297,9 @@ tbody tr:hover{background:#f8fafc}
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ==================== 数据管理 ====================
 const STORAGE_KEY = 'meeting_checkin_data';
@@ -267,25 +341,18 @@ const panelSearch = document.getElementById('panelSearch');
 const panelManual = document.getElementById('panelManual');
 
 function switchSigninMode(mode){
-  [modeSelect, modeSearch, modeManual].forEach(b => b.classList.remove('btn-primary'));
+  [modeSelect, modeSearch, modeManual].forEach(b => { b.classList.add('btn-outline'); b.classList.remove('btn-primary'); });
   [panelSelect, panelSearch, panelManual].forEach(p => p.classList.add('hidden'));
   switch(mode){
     case 'select':
-      modeSelect.classList.add('btn-primary');
-      modeSelect.classList.remove('btn-outline');
-      panelSelect.classList.remove('hidden');
-      renderSelectList();
-      break;
+      modeSelect.classList.remove('btn-outline'); modeSelect.classList.add('btn-primary');
+      panelSelect.classList.remove('hidden'); renderSelectList(); break;
     case 'search':
-      modeSearch.classList.add('btn-primary');
-      modeSearch.classList.remove('btn-outline');
-      panelSearch.classList.remove('hidden');
-      break;
+      modeSearch.classList.remove('btn-outline'); modeSearch.classList.add('btn-primary');
+      panelSearch.classList.remove('hidden'); break;
     case 'manual':
-      modeManual.classList.add('btn-primary');
-      modeManual.classList.remove('btn-outline');
-      panelManual.classList.remove('hidden');
-      break;
+      modeManual.classList.remove('btn-outline'); modeManual.classList.add('btn-primary');
+      panelManual.classList.remove('hidden'); break;
   }
 }
 
@@ -293,7 +360,6 @@ modeSelect.addEventListener('click', () => switchSigninMode('select'));
 modeSearch.addEventListener('click', () => switchSigninMode('search'));
 modeManual.addEventListener('click', () => switchSigninMode('manual'));
 
-// 名单选择模式
 function renderSelectList(filter = ''){
   const list = document.getElementById('selectList');
   const empty = document.getElementById('selectEmpty');
@@ -304,22 +370,19 @@ function renderSelectList(filter = ''){
   });
 
   if(data.attendees.length === 0){
-    list.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
+    list.innerHTML = ''; empty.classList.remove('hidden'); return;
   }
   empty.classList.add('hidden');
 
   if(filtered.length === 0){
-    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">无匹配结果</p>';
-    return;
+    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">无匹配结果</p>'; return;
   }
 
   list.innerHTML = filtered.map(a => {
     const isChecked = data.checkins[a.id] !== undefined;
     const checkTime = data.checkins[a.id] || '';
     const cls = isChecked ? 'checked-in' : '';
-    const icon = isChecked ? '<span class="check-icon" style="color:var(--success);font-size:20px">&#10003;</span>' : '<span style="color:var(--text-muted);font-size:14px">签到 &rarr;</span>';
+    const icon = isChecked ? '<span style="color:var(--success);font-size:20px">&#10003;</span>' : '<span style="color:var(--text-muted);font-size:14px">签到 &rarr;</span>';
     const detail = [a.phone, a.dept].filter(Boolean).join(' | ') || '无详细信息';
     return `<div class="attendee-item ${cls}" data-id="${a.id}">
       <div class="info">
@@ -335,15 +398,9 @@ function renderSelectList(filter = ''){
   });
 }
 
-document.getElementById('searchSelect').addEventListener('input', function(){
-  renderSelectList(this.value);
-});
-document.getElementById('clearSelect').addEventListener('click', function(){
-  document.getElementById('searchSelect').value = '';
-  renderSelectList();
-});
+document.getElementById('searchSelect').addEventListener('input', function(){ renderSelectList(this.value); });
+document.getElementById('clearSelect').addEventListener('click', function(){ document.getElementById('searchSelect').value = ''; renderSelectList(); });
 
-// 搜索模式
 document.getElementById('searchInput').addEventListener('input', function(){
   const q = this.value.trim().toLowerCase();
   const result = document.getElementById('searchResult');
@@ -368,13 +425,11 @@ document.getElementById('searchInput').addEventListener('input', function(){
   }
 });
 
-// 手动签到
 document.getElementById('btnManualSignin').addEventListener('click', function(){
   const name = document.getElementById('manualName').value.trim();
   if(!name){ showToast('请输入姓名'); return; }
   const phone = document.getElementById('manualPhone').value.trim();
   const dept = document.getElementById('manualDept').value.trim();
-  // 如果名单里有同名同号的，直接关联；否则新建
   let person = data.attendees.find(a => a.name === name && a.phone === phone);
   if(!person){
     person = { id: 'm' + Date.now(), name, phone, dept: dept || '' };
@@ -398,13 +453,10 @@ function doCheckin(id){
   document.getElementById('signinName').textContent = person ? person.name : '';
   document.getElementById('signinTime').textContent = '签到时间：' + time;
 
-  // 显示成功
   const panel = document.getElementById('signinSuccess');
   panel.classList.remove('hidden');
-  // 隐藏表单
   [panelSelect, panelSearch, panelManual].forEach(p => p.classList.add('hidden'));
 
-  // 3秒后恢复
   setTimeout(() => {
     panel.classList.add('hidden');
     switchSigninMode('select');
@@ -414,16 +466,188 @@ function doCheckin(id){
   showToast('签到成功！');
 }
 
-// ==================== 全量刷新 ====================
-function refreshAll(){
-  const currentTab = document.querySelector('.tab-content.active').id.replace('tab-', '');
-  if(currentTab === 'dashboard') refreshDashboard();
-  if(currentTab === 'signin'){
-    renderSelectList();
-    document.getElementById('searchResult').innerHTML = '';
-    document.getElementById('searchInput').value = '';
+// ==================== 管理后台 ====================
+function refreshAdminTable(filter = 'all'){
+  const tbody = document.getElementById('adminTableBody');
+  let rows = data.attendees;
+  if(filter === 'checked') rows = rows.filter(a => data.checkins[a.id] !== undefined);
+  if(filter === 'unchecked') rows = rows.filter(a => data.checkins[a.id] === undefined);
+
+  if(rows.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">暂无数据</td></tr>';
+  }else{
+    tbody.innerHTML = rows.map(a => {
+      const isChecked = data.checkins[a.id] !== undefined;
+      const time = data.checkins[a.id] || '-';
+      const status = isChecked ? '<span class="badge badge-success">已签到</span>' : '<span class="badge badge-danger">未签到</span>';
+      return `<tr>
+        <td>${escHtml(a.name)}</td>
+        <td>${escHtml(a.phone || '-')}</td>
+        <td>${escHtml(a.dept || '-')}</td>
+        <td>${escHtml(time)}</td>
+        <td>${status}</td>
+        <td>
+          ${isChecked ? `<button class="btn btn-outline btn-sm undo-btn" data-id="${a.id}">撤销</button>` : ''}
+          <button class="btn btn-outline btn-sm del-btn" data-id="${a.id}" style="color:var(--danger)">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.undo-btn').forEach(btn => {
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        delete data.checkins[this.dataset.id];
+        saveData(data);
+        refreshAll();
+        showToast('已撤销签到');
+      });
+    });
+    tbody.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        if(!confirm('确认删除该参会者？')) return;
+        data.attendees = data.attendees.filter(a => a.id !== this.dataset.id);
+        delete data.checkins[this.dataset.id];
+        saveData(data);
+        refreshAll();
+        showToast('已删除');
+      });
+    });
   }
+
+  const stats = getStats();
+  document.getElementById('statTotal').textContent = stats.total;
+  document.getElementById('statChecked').textContent = stats.checked;
+  document.getElementById('statUnchecked').textContent = stats.unchecked;
+  document.getElementById('checkinProgress').style.width = stats.rate + '%';
+  document.getElementById('checkinRate').textContent = stats.rate + '%';
 }
+
+// 导入
+document.getElementById('btnImport').addEventListener('click', () => {
+  document.getElementById('importModal').classList.remove('hidden');
+  document.getElementById('importText').value = '';
+  document.getElementById('importFile').value = '';
+});
+document.getElementById('btnCancelImport').addEventListener('click', () => {
+  document.getElementById('importModal').classList.add('hidden');
+});
+
+document.getElementById('btnConfirmImport').addEventListener('click', function(){
+  const text = document.getElementById('importText').value.trim();
+  const fileInput = document.getElementById('importFile');
+  const file = fileInput.files[0];
+
+  function parseAndImport(raw){
+    const lines = raw.split(/[\r\n]+/).filter(l => l.trim());
+    if(lines.length === 0){ showToast('无有效数据'); return; }
+    let count = 0;
+    lines.forEach(line => {
+      const parts = line.split(/[,\t，]/).map(s => s.trim()).filter(s => s);
+      if(parts.length === 0) return;
+      const name = parts[0];
+      if(!name) return;
+      const phone = parts[1] || '';
+      const dept = parts[2] || '';
+      const exists = data.attendees.find(a => a.name === name && a.phone === phone);
+      if(!exists){
+        data.attendees.push({ id: 'a' + Date.now() + '_' + count, name, phone, dept });
+        count++;
+      }
+    });
+    saveData(data);
+    refreshAll();
+    document.getElementById('importModal').classList.add('hidden');
+    showToast(`成功导入 ${count} 名参会者`);
+  }
+
+  if(file){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const csv = XLSX.utils.sheet_to_csv(sheet);
+        parseAndImport(csv);
+      }catch(err){
+        showToast('文件解析失败，请检查格式');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }else if(text){
+    parseAndImport(text);
+  }else{
+    showToast('请粘贴名单或上传文件');
+  }
+});
+
+// 手动添加
+document.getElementById('btnAddPerson').addEventListener('click', () => {
+  document.getElementById('addPersonModal').classList.remove('hidden');
+});
+document.getElementById('btnCancelAdd').addEventListener('click', () => {
+  document.getElementById('addPersonModal').classList.add('hidden');
+});
+document.getElementById('btnConfirmAdd').addEventListener('click', function(){
+  const name = document.getElementById('addName').value.trim();
+  if(!name){ showToast('请输入姓名'); return; }
+  const phone = document.getElementById('addPhone').value.trim();
+  const dept = document.getElementById('addDept').value.trim();
+  data.attendees.push({ id: 'a' + Date.now(), name, phone, dept });
+  saveData(data);
+  refreshAll();
+  document.getElementById('addPersonModal').classList.add('hidden');
+  document.getElementById('addName').value = '';
+  document.getElementById('addPhone').value = '';
+  document.getElementById('addDept').value = '';
+  showToast('添加成功');
+});
+
+// 导出
+document.getElementById('btnExport').addEventListener('click', function(){
+  const stats = getStats();
+  let csv = '\uFEFF姓名,手机号,单位,签到状态,签到时间\n';
+  data.attendees.forEach(a => {
+    const isChecked = data.checkins[a.id] !== undefined;
+    csv += `${a.name},${a.phone || ''},${a.dept || ''},${isChecked ? '已签到' : '未签到'},${data.checkins[a.id] || ''}\n`;
+  });
+  csv += `\n统计,,,,\n总人数,${stats.total},已签到,${stats.checked},签到率,${stats.rate}%`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `会议签到表_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('导出成功');
+});
+
+// 清空
+document.getElementById('btnClear').addEventListener('click', function(){
+  if(!confirm('确认清空所有签到数据？此操作不可恢复！')) return;
+  data = { attendees: [], checkins: {} };
+  saveData(data);
+  refreshAll();
+  showToast('数据已清空');
+});
+
+// 筛选
+let currentFilter = 'all';
+document.getElementById('filterAll').addEventListener('click', function(){ setActiveFilter(this, 'all'); refreshAdminTable('all'); });
+document.getElementById('filterChecked').addEventListener('click', function(){ setActiveFilter(this, 'checked'); refreshAdminTable('checked'); });
+document.getElementById('filterUnchecked').addEventListener('click', function(){ setActiveFilter(this, 'unchecked'); refreshAdminTable('unchecked'); });
+
+function setActiveFilter(btn, filter){
+  currentFilter = filter;
+  document.querySelectorAll('#tab-admin .btn-outline.btn-sm').forEach(b => {
+    b.style.background = ''; b.style.color = '';
+  });
+  btn.style.background = 'var(--primary)';
+  btn.style.color = '#fff';
+}
+
+// ==================== 签到大屏 ====================
 function refreshDashboard(){
   const stats = getStats();
   document.getElementById('dashTotal').textContent = stats.total;
@@ -463,6 +687,7 @@ document.querySelectorAll('#tabNav button').forEach(btn => {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     if(tab === 'dashboard') refreshDashboard();
+    if(tab === 'admin') refreshAdminTable(currentFilter);
     if(tab === 'signin'){
       document.getElementById('signinSuccess').classList.add('hidden');
       switchSigninMode('select');
@@ -473,10 +698,10 @@ document.querySelectorAll('#tabNav button').forEach(btn => {
 
 // ==================== 全量刷新 ====================
 function refreshAll(){
-  const currentTab = document.querySelector('.tab-content.active').id.replace('tab-', '');
-  if(currentTab === 'admin') refreshAdminTable();
-  if(currentTab === 'dashboard') refreshDashboard();
-  if(currentTab === 'signin'){
+  refreshAdminTable(currentFilter);
+  const dashTab = document.getElementById('tab-dashboard');
+  if(dashTab.classList.contains('active')) refreshDashboard();
+  if(document.getElementById('tab-signin').classList.contains('active')){
     renderSelectList();
     document.getElementById('searchResult').innerHTML = '';
     document.getElementById('searchInput').value = '';
@@ -487,28 +712,21 @@ function refreshAll(){
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ==================== 初始化 ====================
+refreshAdminTable();
 renderSelectList();
 
-// 大屏自动刷新
 let dashInterval;
 document.querySelector('[data-tab="dashboard"]').addEventListener('click', () => {
   refreshDashboard();
   if(!dashInterval) dashInterval = setInterval(refreshDashboard, 3000);
 });
 
-// 停止刷新当离开大屏
 const dashObserver = new MutationObserver(() => {
-  const dashActive = document.getElementById('tab-dashboard').classList.contains('active');
-  if(!dashActive && dashInterval){
-    clearInterval(dashInterval);
-    dashInterval = null;
+  if(!document.getElementById('tab-dashboard').classList.contains('active') && dashInterval){
+    clearInterval(dashInterval); dashInterval = null;
   }
 });
 dashObserver.observe(document.getElementById('tab-dashboard'), { attributes: true, attributeFilter: ['class'] });
-
-console.log('会议签到系统已就绪');
-console.log('签到链接: ' + window.location.href);
-console.log('请在管理后台导入参会名单后使用');
 </script>
 </body>
 </html>
