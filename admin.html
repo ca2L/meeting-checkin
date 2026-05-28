@@ -166,7 +166,7 @@ tbody tr:hover{background:#f8fafc}
       <table>
         <thead>
           <tr>
-            <th>姓名</th><th>手机号</th><th>单位</th><th>签到时间</th><th>状态</th><th>操作</th>
+            <th>姓名</th><th>手机号</th><th>企业/机构名称</th><th>签到时间</th><th>状态</th><th>操作</th>
           </tr>
         </thead>
         <tbody id="adminTableBody"></tbody>
@@ -179,10 +179,10 @@ tbody tr:hover{background:#f8fafc}
     <div class="modal">
       <h3>导入参会名单</h3>
       <div class="form-group">
-        <label>粘贴名单（每行一个，格式: 姓名,手机号,单位）</label>
-        <textarea id="importText" placeholder="张三,13800138000,市场部&#10;李四,13900139000,技术部&#10;王五,,行政部"></textarea>
+        <label>粘贴名单（每行一个，格式: 姓名,手机号,企业/机构名称）</label>
+        <textarea id="importText" placeholder="张三,13800138000,XX医药公司&#10;李四,13900139000,YY科技有限公司&#10;王五,,ZZ集团"></textarea>
       </div>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">每行一个参会者，用逗号分隔：姓名,手机号,单位。手机号和单位可省略。</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">每行一个参会者，用逗号分隔：姓名,手机号,企业/机构名称。手机号可省略，企业/机构名称为必填。</p>
       <div class="form-group">
         <label>或上传Excel/CSV文件</label>
         <input type="file" id="importFile" accept=".csv,.xlsx,.xls">
@@ -207,8 +207,8 @@ tbody tr:hover{background:#f8fafc}
         <input type="tel" id="addPhone" placeholder="请输入手机号">
       </div>
       <div class="form-group">
-        <label>单位/部门</label>
-        <input type="text" id="addDept" placeholder="请输入单位或部门">
+        <label>企业/机构名称 *</label>
+        <input type="text" id="addDept" placeholder="请输入企业或机构名称（必填）">
       </div>
       <div class="btn-group">
         <button class="btn btn-primary" id="btnConfirmAdd">确认添加</button>
@@ -259,8 +259,8 @@ tbody tr:hover{background:#f8fafc}
         <input type="tel" id="manualPhone" placeholder="请输入手机号（选填）">
       </div>
       <div class="form-group">
-        <label>单位/部门</label>
-        <input type="text" id="manualDept" placeholder="请输入单位或部门（选填）">
+        <label>企业/机构名称 *</label>
+        <input type="text" id="manualDept" placeholder="请输入企业或机构名称（必填）">
       </div>
       <button class="btn btn-primary btn-block" id="btnManualSignin">确认签到</button>
     </div>
@@ -428,8 +428,9 @@ document.getElementById('searchInput').addEventListener('input', function(){
 document.getElementById('btnManualSignin').addEventListener('click', function(){
   const name = document.getElementById('manualName').value.trim();
   if(!name){ showToast('请输入姓名'); return; }
-  const phone = document.getElementById('manualPhone').value.trim();
   const dept = document.getElementById('manualDept').value.trim();
+  if(!dept){ showToast('请输入企业/机构名称'); return; }
+  const phone = document.getElementById('manualPhone').value.trim();
   let person = data.attendees.find(a => a.name === name && a.phone === phone);
   if(!person){
     person = { id: 'm' + Date.now(), name, phone, dept: dept || '' };
@@ -591,8 +592,9 @@ document.getElementById('btnCancelAdd').addEventListener('click', () => {
 document.getElementById('btnConfirmAdd').addEventListener('click', function(){
   const name = document.getElementById('addName').value.trim();
   if(!name){ showToast('请输入姓名'); return; }
-  const phone = document.getElementById('addPhone').value.trim();
   const dept = document.getElementById('addDept').value.trim();
+  if(!dept){ showToast('请输入企业/机构名称'); return; }
+  const phone = document.getElementById('addPhone').value.trim();
   data.attendees.push({ id: 'a' + Date.now(), name, phone, dept });
   saveData(data);
   refreshAll();
@@ -606,7 +608,7 @@ document.getElementById('btnConfirmAdd').addEventListener('click', function(){
 // 导出
 document.getElementById('btnExport').addEventListener('click', function(){
   const stats = getStats();
-  let csv = '\uFEFF姓名,手机号,单位,签到状态,签到时间\n';
+  let csv = '\uFEFF姓名,手机号,企业/机构名称,签到状态,签到时间\n';
   data.attendees.forEach(a => {
     const isChecked = data.checkins[a.id] !== undefined;
     csv += `${a.name},${a.phone || ''},${a.dept || ''},${isChecked ? '已签到' : '未签到'},${data.checkins[a.id] || ''}\n`;
