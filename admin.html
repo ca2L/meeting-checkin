@@ -235,26 +235,17 @@ tbody tr:hover{background:#f8fafc}
 
   <div class="card">
     <div class="btn-group" style="margin-bottom:16px">
-      <button class="btn" id="modeSelect" style="flex:1">从名单选择签到</button>
-      <button class="btn btn-outline" id="modeSearch" style="flex:1">搜索姓名签到</button>
+      <button class="btn btn-primary" id="modeSignin" style="flex:1">签到</button>
       <button class="btn btn-outline" id="modeManual" style="flex:1">手动填写签到</button>
     </div>
 
-    <div id="panelSelect">
-      <div class="search-box">
-        <input type="text" id="searchSelect" placeholder="搜索姓名或手机号..." autocomplete="off">
-        <button class="clear-btn" id="clearSelect">&times;</button>
+    <div id="panelSignin">
+      <div class="search-box" style="margin-bottom:12px">
+        <input type="text" id="searchSignin" placeholder="搜索姓名、手机号或企业/机构名称..." autocomplete="off">
+        <button class="clear-btn" id="clearSignin">&times;</button>
       </div>
-      <div class="attendee-list" id="selectList"></div>
-      <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px" id="selectEmpty">暂无参会名单，请先导入</p>
-    </div>
-
-    <div id="panelSearch" class="hidden">
-      <div class="form-group">
-        <label>输入姓名或手机号</label>
-        <input type="text" id="searchInput" placeholder="请输入姓名或手机号..." autocomplete="off">
-      </div>
-      <div id="searchResult" style="margin-top:8px"></div>
+      <div class="attendee-list" id="signinList"></div>
+      <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px" id="signinEmpty">暂无参会名单，请先导入</p>
     </div>
 
     <div id="panelManual" class="hidden">
@@ -393,40 +384,38 @@ function showToast(msg, duration = 2000){
 }
 
 // ==================== 签到功能 ====================
-const modeSelect = document.getElementById('modeSelect');
-const modeSearch = document.getElementById('modeSearch');
+const modeSignin = document.getElementById('modeSignin');
 const modeManual = document.getElementById('modeManual');
-const panelSelect = document.getElementById('panelSelect');
-const panelSearch = document.getElementById('panelSearch');
+const panelSignin = document.getElementById('panelSignin');
 const panelManual = document.getElementById('panelManual');
 
 function switchSigninMode(mode){
-  [modeSelect, modeSearch, modeManual].forEach(b => { b.classList.add('btn-outline'); b.classList.remove('btn-primary'); });
-  [panelSelect, panelSearch, panelManual].forEach(p => p.classList.add('hidden'));
+  [modeSignin, modeManual].forEach(b => { b.classList.add('btn-outline'); b.classList.remove('btn-primary'); });
+  [panelSignin, panelManual].forEach(p => p.classList.add('hidden'));
   switch(mode){
-    case 'select':
-      modeSelect.classList.remove('btn-outline'); modeSelect.classList.add('btn-primary');
-      panelSelect.classList.remove('hidden'); renderSelectList(); break;
-    case 'search':
-      modeSearch.classList.remove('btn-outline'); modeSearch.classList.add('btn-primary');
-      panelSearch.classList.remove('hidden'); break;
+    case 'signin':
+      modeSignin.classList.remove('btn-outline'); modeSignin.classList.add('btn-primary');
+      panelSignin.classList.remove('hidden'); renderSigninList(); break;
     case 'manual':
       modeManual.classList.remove('btn-outline'); modeManual.classList.add('btn-primary');
       panelManual.classList.remove('hidden'); break;
   }
 }
 
-modeSelect.addEventListener('click', () => switchSigninMode('select'));
-modeSearch.addEventListener('click', () => switchSigninMode('search'));
+modeSignin.addEventListener('click', () => switchSigninMode('signin'));
 modeManual.addEventListener('click', () => switchSigninMode('manual'));
 
-function renderSelectList(filter = ''){
-  const list = document.getElementById('selectList');
-  const empty = document.getElementById('selectEmpty');
-  const q = filter.toLowerCase();
+// ==================== 统一搜索签到 ====================
+function renderSigninList(filter = ''){
+  const list = document.getElementById('signinList');
+  const empty = document.getElementById('signinEmpty');
+  const q = filter.trim().toLowerCase();
+
   const filtered = data.attendees.filter(a => {
     if(!q) return true;
-    return a.name.toLowerCase().includes(q) || (a.phone && a.phone.includes(q));
+    return a.name.toLowerCase().includes(q)
+      || (a.phone && a.phone.includes(q))
+      || (a.dept && a.dept.toLowerCase().includes(q));
   });
 
   if(data.attendees.length === 0){
@@ -435,7 +424,7 @@ function renderSelectList(filter = ''){
   empty.classList.add('hidden');
 
   if(filtered.length === 0){
-    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">无匹配结果</p>'; return;
+    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">未找到匹配的参会者，可尝试手动填写签到</p>'; return;
   }
 
   list.innerHTML = filtered.map(a => {
@@ -443,7 +432,7 @@ function renderSelectList(filter = ''){
     const checkTime = data.checkins[a.id] || '';
     const cls = isChecked ? 'checked-in' : '';
     const icon = isChecked ? '<span style="color:var(--success);font-size:20px">&#10003;</span>' : '<span style="color:var(--text-muted);font-size:14px">签到 &rarr;</span>';
-    const detail = [a.phone, a.dept].filter(Boolean).join(' | ') || '无详细信息';
+    const detail = [a.phone, a.dept, a.province].filter(Boolean).join(' | ') || '无详细信息';
     return `<div class="attendee-item ${cls}" data-id="${a.id}">
       <div class="info">
         <div class="name">${escHtml(a.name)}${isChecked ? ' <span class="badge badge-success">已签到</span>' : ''}</div>
@@ -458,32 +447,8 @@ function renderSelectList(filter = ''){
   });
 }
 
-document.getElementById('searchSelect').addEventListener('input', function(){ renderSelectList(this.value); });
-document.getElementById('clearSelect').addEventListener('click', function(){ document.getElementById('searchSelect').value = ''; renderSelectList(); });
-
-document.getElementById('searchInput').addEventListener('input', function(){
-  const q = this.value.trim().toLowerCase();
-  const result = document.getElementById('searchResult');
-  if(!q){ result.innerHTML = ''; return; }
-  const matches = data.attendees.filter(a => a.name.toLowerCase().includes(q) || (a.phone && a.phone.includes(q)));
-  if(matches.length === 0){
-    result.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:10px">未找到匹配的参会者</p>';
-  }else{
-    result.innerHTML = matches.map(a => {
-      const isChecked = data.checkins[a.id] !== undefined;
-      return `<div class="attendee-item ${isChecked ? 'checked-in' : ''}" data-id="${a.id}" style="${isChecked?'':'cursor:pointer'}">
-        <div class="info">
-          <div class="name">${escHtml(a.name)}${isChecked ? ' <span class="badge badge-success">已签到</span>' : ''}</div>
-          <div class="detail">${escHtml([a.phone,a.dept].filter(Boolean).join(' | ') || '')}</div>
-        </div>
-        ${isChecked ? '<span style="color:var(--success)">&#10003;</span>' : '<button class="btn btn-primary btn-sm">签到</button>'}
-      </div>`;
-    }).join('');
-    result.querySelectorAll('.attendee-item:not(.checked-in)').forEach(el => {
-      el.addEventListener('click', () => doCheckin(el.dataset.id));
-    });
-  }
-});
+document.getElementById('searchSignin').addEventListener('input', function(){ renderSigninList(this.value); });
+document.getElementById('clearSignin').addEventListener('click', function(){ document.getElementById('searchSignin').value = ''; renderSigninList(); });
 
 document.getElementById('btnManualSignin').addEventListener('click', function(){
   const name = document.getElementById('manualName').value.trim();
@@ -521,11 +486,11 @@ function doCheckin(id){
 
   const panel = document.getElementById('signinSuccess');
   panel.classList.remove('hidden');
-  [panelSelect, panelSearch, panelManual].forEach(p => p.classList.add('hidden'));
+  [panelSignin, panelManual].forEach(p => p.classList.add('hidden'));
 
   setTimeout(() => {
     panel.classList.add('hidden');
-    switchSigninMode('select');
+    switchSigninMode('signin');
   }, 3000);
 
   refreshAll();
@@ -764,8 +729,7 @@ document.querySelectorAll('#tabNav button').forEach(btn => {
     if(tab === 'signin'){
       data = loadData(); // 重新加载数据
       document.getElementById('signinSuccess').classList.add('hidden');
-      switchSigninMode('select');
-      renderSelectList();
+      switchSigninMode('signin');
     }
   });
 });
@@ -776,9 +740,7 @@ function refreshAll(){
   const dashTab = document.getElementById('tab-dashboard');
   if(dashTab.classList.contains('active')) refreshDashboard();
   if(document.getElementById('tab-signin').classList.contains('active')){
-    renderSelectList();
-    document.getElementById('searchResult').innerHTML = '';
-    document.getElementById('searchInput').value = '';
+    renderSigninList();
   }
 }
 
@@ -897,7 +859,7 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // ==================== 初始化 ====================
 initProvinceSelects();
 refreshAdminTable();
-renderSelectList();
+renderSigninList();
 
 let dashInterval;
 document.querySelector('[data-tab="dashboard"]').addEventListener('click', () => {
