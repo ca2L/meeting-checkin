@@ -340,6 +340,21 @@ function saveData(data){
 
 let data = loadData();
 
+// 监听 localStorage 变化（跨标签页同步）和页面可见性变化
+window.addEventListener('storage', function(e){
+  if(e.key === STORAGE_KEY){
+    data = loadData();
+    refreshAll();
+  }
+});
+
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden){
+    data = loadData();
+    refreshAll();
+  }
+});
+
 // 省份列表
 const PROVINCES = [
   '北京','天津','上海','重庆','河北','山西','辽宁','吉林','黑龙江',
@@ -737,6 +752,7 @@ document.querySelectorAll('#tabNav button').forEach(btn => {
     if(tab === 'dashboard') refreshDashboard();
     if(tab === 'admin') refreshAdminTable(currentFilter);
     if(tab === 'signin'){
+      data = loadData(); // 重新加载数据
       document.getElementById('signinSuccess').classList.add('hidden');
       switchSigninMode('select');
       renderSelectList();
