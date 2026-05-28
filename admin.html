@@ -234,41 +234,26 @@ tbody tr:hover{background:#f8fafc}
   </div>
 
   <div class="card">
-    <div class="btn-group" style="margin-bottom:16px">
-      <button class="btn btn-primary" id="modeSignin" style="flex:1">签到</button>
-      <button class="btn btn-outline" id="modeManual" style="flex:1">手动填写签到</button>
+    <h3>管理员代签到</h3>
+    <div class="form-group">
+      <label>姓名 *</label>
+      <input type="text" id="manualName" placeholder="请输入姓名">
     </div>
-
-    <div id="panelSignin">
-      <div class="search-box" style="margin-bottom:12px">
-        <input type="text" id="searchSignin" placeholder="搜索姓名、手机号或企业/机构名称..." autocomplete="off">
-        <button class="clear-btn" id="clearSignin">&times;</button>
-      </div>
-      <div class="attendee-list" id="signinList"></div>
-      <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px" id="signinEmpty">暂无参会名单，请先导入</p>
+    <div class="form-group">
+      <label>手机号</label>
+      <input type="tel" id="manualPhone" placeholder="请输入手机号（选填）">
     </div>
-
-    <div id="panelManual" class="hidden">
-      <div class="form-group">
-        <label>姓名 *</label>
-        <input type="text" id="manualName" placeholder="请输入姓名">
-      </div>
-      <div class="form-group">
-        <label>手机号</label>
-        <input type="tel" id="manualPhone" placeholder="请输入手机号（选填）">
-      </div>
-      <div class="form-group">
-        <label>企业/机构名称 *</label>
-        <input type="text" id="manualDept" placeholder="请输入企业或机构名称（必填）">
-      </div>
-      <div class="form-group">
-        <label>所在省份/地区</label>
-        <select id="manualProvince">
-          <option value="">请选择省份</option>
-        </select>
-      </div>
-      <button class="btn btn-primary btn-block" id="btnManualSignin">确认签到</button>
+    <div class="form-group">
+      <label>企业/机构名称 *</label>
+      <input type="text" id="manualDept" placeholder="请输入企业或机构名称（必填）">
     </div>
+    <div class="form-group">
+      <label>所在省份/地区</label>
+      <select id="manualProvince">
+        <option value="">请选择省份</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnManualSignin">确认签到</button>
   </div>
 
   <div id="signinSuccess" class="card hidden" style="text-align:center;background:var(--success-light)">
@@ -383,72 +368,7 @@ function showToast(msg, duration = 2000){
   setTimeout(() => t.classList.add('hidden'), duration);
 }
 
-// ==================== 签到功能 ====================
-const modeSignin = document.getElementById('modeSignin');
-const modeManual = document.getElementById('modeManual');
-const panelSignin = document.getElementById('panelSignin');
-const panelManual = document.getElementById('panelManual');
-
-function switchSigninMode(mode){
-  [modeSignin, modeManual].forEach(b => { b.classList.add('btn-outline'); b.classList.remove('btn-primary'); });
-  [panelSignin, panelManual].forEach(p => p.classList.add('hidden'));
-  switch(mode){
-    case 'signin':
-      modeSignin.classList.remove('btn-outline'); modeSignin.classList.add('btn-primary');
-      panelSignin.classList.remove('hidden'); renderSigninList(); break;
-    case 'manual':
-      modeManual.classList.remove('btn-outline'); modeManual.classList.add('btn-primary');
-      panelManual.classList.remove('hidden'); break;
-  }
-}
-
-modeSignin.addEventListener('click', () => switchSigninMode('signin'));
-modeManual.addEventListener('click', () => switchSigninMode('manual'));
-
-// ==================== 统一搜索签到 ====================
-function renderSigninList(filter = ''){
-  const list = document.getElementById('signinList');
-  const empty = document.getElementById('signinEmpty');
-  const q = filter.trim().toLowerCase();
-
-  const filtered = data.attendees.filter(a => {
-    if(!q) return true;
-    return a.name.toLowerCase().includes(q)
-      || (a.phone && a.phone.includes(q))
-      || (a.dept && a.dept.toLowerCase().includes(q));
-  });
-
-  if(data.attendees.length === 0){
-    list.innerHTML = ''; empty.classList.remove('hidden'); return;
-  }
-  empty.classList.add('hidden');
-
-  if(filtered.length === 0){
-    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">未找到匹配的参会者，可尝试手动填写签到</p>'; return;
-  }
-
-  list.innerHTML = filtered.map(a => {
-    const isChecked = data.checkins[a.id] !== undefined;
-    const checkTime = data.checkins[a.id] || '';
-    const cls = isChecked ? 'checked-in' : '';
-    const icon = isChecked ? '<span style="color:var(--success);font-size:20px">&#10003;</span>' : '<span style="color:var(--text-muted);font-size:14px">签到 &rarr;</span>';
-    const detail = [a.phone, a.dept, a.province].filter(Boolean).join(' | ') || '无详细信息';
-    return `<div class="attendee-item ${cls}" data-id="${a.id}">
-      <div class="info">
-        <div class="name">${escHtml(a.name)}${isChecked ? ' <span class="badge badge-success">已签到</span>' : ''}</div>
-        <div class="detail">${escHtml(detail)}${isChecked ? ' | ' + checkTime : ''}</div>
-      </div>
-      ${icon}
-    </div>`;
-  }).join('');
-
-  list.querySelectorAll('.attendee-item:not(.checked-in)').forEach(el => {
-    el.addEventListener('click', () => doCheckin(el.dataset.id));
-  });
-}
-
-document.getElementById('searchSignin').addEventListener('input', function(){ renderSigninList(this.value); });
-document.getElementById('clearSignin').addEventListener('click', function(){ document.getElementById('searchSignin').value = ''; renderSigninList(); });
+// ==================== 签到功能 - 手动填写 ====================
 
 document.getElementById('btnManualSignin').addEventListener('click', function(){
   const name = document.getElementById('manualName').value.trim();
@@ -486,11 +406,9 @@ function doCheckin(id){
 
   const panel = document.getElementById('signinSuccess');
   panel.classList.remove('hidden');
-  [panelSignin, panelManual].forEach(p => p.classList.add('hidden'));
 
   setTimeout(() => {
     panel.classList.add('hidden');
-    switchSigninMode('signin');
   }, 3000);
 
   refreshAll();
@@ -729,7 +647,6 @@ document.querySelectorAll('#tabNav button').forEach(btn => {
     if(tab === 'signin'){
       data = loadData(); // 重新加载数据
       document.getElementById('signinSuccess').classList.add('hidden');
-      switchSigninMode('signin');
     }
   });
 });
@@ -739,47 +656,45 @@ function refreshAll(){
   refreshAdminTable(currentFilter);
   const dashTab = document.getElementById('tab-dashboard');
   if(dashTab.classList.contains('active')) refreshDashboard();
-  if(document.getElementById('tab-signin').classList.contains('active')){
-    renderSigninList();
-  }
 }
 
-// ==================== 中国地图 ====================
+// ==================== 完整中国地图 ====================
+// 基于真实地理数据的简化中国省份SVG路径（viewBox 0 0 1000 800）
 const CHINA_MAP_DATA = {
-  '黑龙江': { path: 'M520,60 L560,55 L570,70 L575,95 L570,110 L560,120 L545,115 L530,105 L520,85 Z', cx: 540, cy: 88 },
-  '吉林': { path: 'M530,105 L545,115 L555,125 L550,140 L540,145 L525,140 L520,125 Z', cx: 538, cy: 125 },
-  '辽宁': { path: 'M520,125 L540,145 L535,155 L525,160 L515,155 L510,140 Z', cx: 525, cy: 143 },
-  '内蒙古': { path: 'M400,45 L460,35 L500,45 L520,60 L520,85 L510,95 L490,100 L460,95 L430,90 L400,80 L380,65 L370,55 Z', cx: 445, cy: 68 },
-  '北京': { path: 'M510,110 L518,110 L518,118 L510,118 Z', cx: 514, cy: 114 },
-  '天津': { path: 'M515,120 L523,120 L523,128 L515,128 Z', cx: 519, cy: 124 },
-  '河北': { path: 'M490,120 L510,110 L525,120 L525,140 L515,145 L500,145 L490,135 Z', cx: 508, cy: 130 },
-  '山东': { path: 'M500,145 L525,140 L540,155 L535,170 L520,175 L505,170 L495,160 Z', cx: 518, cy: 158 },
-  '山西': { path: 'M470,130 L490,120 L500,135 L495,150 L480,155 L465,150 L460,140 Z', cx: 480, cy: 140 },
-  '河南': { path: 'M460,155 L480,155 L500,160 L505,175 L495,185 L475,185 L460,175 L450,165 Z', cx: 478, cy: 170 },
-  '陕西': { path: 'M430,145 L460,140 L470,155 L460,170 L445,170 L430,160 Z', cx: 450, cy: 155 },
-  '甘肃': { path: 'M340,120 L370,115 L400,120 L430,130 L430,145 L410,150 L380,150 L350,145 L330,135 Z', cx: 380, cy: 135 },
-  '宁夏': { path: 'M400,125 L415,125 L415,135 L400,135 Z', cx: 408, cy: 130 },
-  '青海': { path: 'M280,150 L330,140 L350,145 L340,160 L320,175 L290,180 L270,170 Z', cx: 310, cy: 160 },
-  '新疆': { path: 'M100,40 L200,20 L280,40 L340,70 L340,100 L320,115 L300,120 L280,115 L240,120 L200,110 L160,100 L120,85 L100,65 Z', cx: 220, cy: 70 },
-  '西藏': { path: 'M100,120 L160,130 L220,145 L270,160 L270,180 L240,200 L200,210 L160,210 L120,200 L90,170 L85,150 Z', cx: 178, cy: 168 },
-  '四川': { path: 'M270,180 L320,175 L350,185 L370,200 L380,220 L350,235 L310,240 L280,235 L260,220 L255,200 Z', cx: 318, cy: 208 },
-  '重庆': { path: 'M370,200 L385,200 L385,212 L370,212 Z', cx: 378, cy: 206 },
-  '贵州': { path: 'M350,235 L380,235 L390,250 L375,265 L355,260 L340,250 Z', cx: 365, cy: 248 },
-  '云南': { path: 'M280,250 L320,250 L350,250 L355,270 L340,290 L310,305 L280,300 L260,285 L250,270 Z', cx: 303, cy: 275 },
-  '广西': { path: 'M340,265 L375,265 L390,280 L385,300 L365,310 L340,305 L325,290 L320,275 Z', cx: 355, cy: 288 },
-  '广东': { path: 'M390,300 L420,295 L440,305 L445,320 L435,335 L415,340 L395,335 L385,320 Z', cx: 415, cy: 318 },
-  '海南': { path: 'M390,350 L405,348 L408,358 L395,360 Z', cx: 400, cy: 354 },
-  '湖南': { path: 'M380,245 L400,250 L415,260 L410,275 L395,280 L380,275 L370,260 Z', cx: 393, cy: 262 },
-  '湖北': { path: 'M390,215 L415,220 L425,235 L415,250 L395,250 L380,240 L375,225 Z', cx: 400, cy: 233 },
-  '江西': { path: 'M420,250 L440,255 L450,268 L440,280 L425,278 L415,268 Z', cx: 433, cy: 265 },
-  '安徽': { path: 'M425,210 L450,215 L460,225 L455,240 L440,245 L425,240 L418,225 Z', cx: 439, cy: 228 },
-  '江苏': { path: 'M450,200 L475,200 L485,215 L478,230 L460,230 L448,220 Z', cx: 467, cy: 215 },
-  '上海': { path: 'M478,215 L485,215 L485,222 L478,222 Z', cx: 482, cy: 219 },
-  '浙江': { path: 'M455,240 L475,235 L485,248 L478,260 L460,260 L450,252 Z', cx: 468, cy: 248 },
-  '福建': { path: 'M440,270 L460,270 L470,285 L465,300 L450,305 L435,295 L430,280 Z', cx: 450, cy: 288 },
-  '台湾': { path: 'M475,300 L490,295 L495,310 L480,315 Z', cx: 485, cy: 305 },
-  '香港': { path: 'M420,340 L428,338 L430,345 L422,347 Z', cx: 425, cy: 343 },
-  '澳门': { path: 'M408,338 L414,337 L415,343 L409,344 Z', cx: 412, cy: 341 }
+  '黑龙江': { path: 'M865,105 L920,95 L935,110 L940,140 L935,160 L920,175 L900,170 L885,155 L870,130 Z', cx: 898, cy: 135 },
+  '吉林': { path: 'M885,155 L900,170 L910,180 L905,200 L890,205 L875,195 L870,180 Z', cx: 890, cy: 180 },
+  '辽宁': { path: 'M870,180 L890,205 L885,220 L875,228 L860,222 L855,205 Z', cx: 873, cy: 205 },
+  '内蒙古': { path: 'M630,50 L740,35 L830,55 L865,85 L870,130 L855,145 L835,145 L800,140 L760,135 L720,125 L680,115 L650,100 L630,85 Z', cx: 748, cy: 95 },
+  '北京': { path: 'M848,160 L858,160 L858,170 L848,170 Z', cx: 853, cy: 165 },
+  '天津': { path: 'M855,172 L865,172 L865,182 L855,182 Z', cx: 860, cy: 177 },
+  '河北': { path: 'M830,170 L855,160 L870,170 L875,190 L865,200 L850,200 L835,190 Z', cx: 853, cy: 183 },
+  '山东': { path: 'M850,200 L870,195 L885,210 L880,230 L865,238 L850,235 L840,220 Z', cx: 863, cy: 218 },
+  '山西': { path: 'M805,175 L835,170 L850,185 L840,200 L820,205 L805,200 L795,185 Z', cx: 823, cy: 190 },
+  '河南': { path: 'M790,210 L820,205 L840,215 L850,230 L840,245 L815,245 L795,235 L780,220 Z', cx: 815, cy: 228 },
+  '陕西': { path: 'M745,195 L795,185 L810,205 L795,220 L770,220 L750,208 Z', cx: 780, cy: 205 },
+  '甘肃': { path: 'M540,165 L600,155 L660,160 L720,170 L745,195 L715,205 L680,205 L640,200 L600,190 L560,178 Z', cx: 643, cy: 183 },
+  '宁夏': { path: 'M670,165 L695,165 L695,180 L670,180 Z', cx: 683, cy: 173 },
+  '青海': { path: 'M430,205 L520,190 L560,195 L545,215 L510,235 L455,245 L425,230 Z', cx: 490, cy: 218 },
+  '新疆': { path: 'M120,50 L310,20 L460,45 L560,90 L560,130 L530,155 L500,165 L460,160 L400,165 L340,155 L260,140 L180,115 L130,85 Z', cx: 340, cy: 95 },
+  '西藏': { path: 'M130,160 L240,175 L370,195 L435,200 L435,225 L380,255 L320,270 L260,270 L200,260 L145,230 L120,195 Z', cx: 278, cy: 220 },
+  '四川': { path: 'M435,230 L510,225 L560,240 L595,255 L605,280 L575,300 L510,310 L455,305 L420,290 L410,260 Z', cx: 508, cy: 268 },
+  '重庆': { path: 'M595,255 L620,255 L620,270 L595,270 Z', cx: 608, cy: 263 },
+  '贵州': { path: 'M575,300 L620,300 L630,320 L610,340 L575,330 L555,315 Z', cx: 593, cy: 318 },
+  '云南': { path: 'M450,320 L515,315 L570,315 L575,345 L550,370 L500,385 L455,380 L420,365 L400,345 Z', cx: 488, cy: 350 },
+  '广西': { path: 'M555,340 L615,340 L630,360 L620,385 L585,395 L550,390 L530,370 L520,350 Z', cx: 575, cy: 368 },
+  '广东': { path: 'M620,380 L675,370 L705,380 L715,400 L695,420 L660,428 L625,422 L610,405 Z', cx: 663, cy: 400 },
+  '海南': { path: 'M625,445 L650,440 L655,455 L630,458 Z', cx: 640, cy: 449 },
+  '湖南': { path: 'M610,315 L645,320 L665,335 L660,355 L635,360 L610,350 L595,330 Z', cx: 630, cy: 338 },
+  '湖北': { path: 'M625,275 L665,280 L680,300 L665,318 L635,318 L610,305 L600,285 Z', cx: 640, cy: 298 },
+  '江西': { path: 'M680,320 L715,325 L730,340 L715,358 L685,355 L665,340 Z', cx: 698, cy: 338 },
+  '安徽': { path: 'M690,268 L735,273 L750,288 L740,308 L715,313 L690,308 L675,290 Z', cx: 713, cy: 293 },
+  '江苏': { path: 'M735,252 L780,250 L795,268 L785,288 L755,290 L735,278 Z', cx: 765, cy: 270 },
+  '上海': { path: 'M785,272 L795,272 L795,282 L785,282 Z', cx: 790, cy: 277 },
+  '浙江': { path: 'M745,305 L780,298 L795,315 L785,332 L755,333 L738,320 Z', cx: 767, cy: 317 },
+  '福建': { path: 'M718,345 L750,343 L765,360 L758,380 L733,388 L710,375 L700,358 Z', cx: 733, cy: 365 },
+  '台湾': { path: 'M780,382 L805,375 L815,395 L795,405 Z', cx: 798, cy: 390 },
+  '香港': { path: 'M675,415 L685,413 L688,422 L678,425 Z', cx: 682, cy: 419 },
+  '澳门': { path: 'M655,413 L663,412 L665,420 L657,422 Z', cx: 660, cy: 417 }
 };
 
 function drawChinaMap(){
@@ -822,8 +737,8 @@ function drawChinaMap(){
     return `<text x="${d.cx}" y="${d.cy}" text-anchor="middle" fill="#fff" font-size="8" font-weight="bold" style="pointer-events:none">${count}</text>`;
   }).join('');
 
-  container.innerHTML = `<svg viewBox="0 0 600 500" style="width:100%;height:auto;max-height:420px">
-    <rect width="600" height="500" fill="#0f172a" rx="8"/>
+  container.innerHTML = `<svg viewBox="0 0 1000 800" style="width:100%;height:auto;max-height:500px">
+    <rect width="1000" height="800" fill="#0f172a" rx="8"/>
     ${paths}
     ${labels}
   </svg>`;
@@ -859,7 +774,6 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // ==================== 初始化 ====================
 initProvinceSelects();
 refreshAdminTable();
-renderSigninList();
 
 let dashInterval;
 document.querySelector('[data-tab="dashboard"]').addEventListener('click', () => {
