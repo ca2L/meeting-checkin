@@ -59,15 +59,11 @@ function genQR(url){
   document.getElementById('urlDisplay').textContent = url;
 }
 
-// 自动检测签到页地址：优先使用同目录的 index.html
+// 自动检测签到页地址：指向同目录的 index.html
 (function initURL(){
   let baseUrl = window.location.href;
-  // 去掉 qr-display.html 后缀
-  baseUrl = baseUrl.replace(/qr-display\.html(\?.*)?(#.*)?$/, '');
-  // 如果当前就是根目录（GitHub Pages 默认页），直接指向同目录
-  if(baseUrl === window.location.href || baseUrl.endsWith('/')){
-    baseUrl = window.location.href.replace(/qr-display\.html.*$/, '').replace(/\/$/, '') + '/';
-  }
+  // 去掉 qr-display.html，拼接 index.html
+  baseUrl = baseUrl.replace(/qr-display\.html(\?.*)?(#.*)?$/, 'index.html');
   const signInUrl = baseUrl;
   document.getElementById('urlInput').value = signInUrl;
   genQR(signInUrl);
