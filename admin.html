@@ -355,6 +355,13 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 
+window.addEventListener('pageshow', function(e){
+  if(e.persisted || performance.navigation.type === 2){
+    data = loadData();
+    refreshAll();
+  }
+});
+
 // 省份列表
 const PROVINCES = [
   '北京','天津','上海','重庆','河北','山西','辽宁','吉林','黑龙江',
@@ -486,7 +493,10 @@ document.getElementById('btnManualSignin').addEventListener('click', function(){
   const phone = document.getElementById('manualPhone').value.trim();
   const province = document.getElementById('manualProvince').value;
   let person = data.attendees.find(a => a.name === name && a.phone === phone);
-  if(!person){
+  if(person){
+    if(dept) person.dept = dept;
+    if(province) person.province = province;
+  } else {
     person = { id: 'm' + Date.now(), name, phone, dept: dept || '', province };
     data.attendees.push(person);
   }

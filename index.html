@@ -145,6 +145,12 @@ tbody tr:hover{background:#f8fafc}
     <p style="color:rgba(255,255,255,.8);font-size:14px">请在下方选择签到方式</p>
   </div>
 
+  <!-- 数据状态栏 -->
+  <div id="dataStatusBar" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:8px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;font-size:13px">
+    <span style="color:#94a3b8">名单人数: <b style="color:#e2e8f0" id="statusAttendeeCount">0</b> | 已签到: <b style="color:#22c55e" id="statusCheckedCount">0</b></span>
+    <button id="btnRefreshData" style="background:#334155;color:#e2e8f0;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer">刷新数据</button>
+  </div>
+
   <!-- 签到方式切换 -->
   <div class="card">
     <div class="btn-group" style="margin-bottom:16px">
@@ -275,6 +281,14 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 
+// 微信 WebView 从后台恢复时（pageshow 事件，persisted=true 表示从缓存恢复）
+window.addEventListener('pageshow', function(e){
+  if(e.persisted || performance.navigation.type === 2){
+    data = loadData();
+    refreshAll();
+  }
+});
+
 // 省份列表
 const PROVINCES = [
   '北京','天津','上海','重庆','河北','山西','辽宁','吉林','黑龙江',
@@ -296,6 +310,19 @@ function getStats(){
   const checked = Object.keys(data.checkins).length;
   return { total, checked, unchecked: total - checked, rate: total > 0 ? Math.round(checked/total*100) : 0 };
 }
+
+function updateStatusBar(){
+  const stats = getStats();
+  document.getElementById('statusAttendeeCount').textContent = stats.total;
+  document.getElementById('statusCheckedCount').textContent = stats.checked;
+}
+
+// 刷新数据按钮
+document.getElementById('btnRefreshData').addEventListener('click', function(){
+  data = loadData();
+  refreshAll();
+  showToast('数据已刷新');
+});
 
 // ==================== Toast ====================
 function showToast(msg, duration = 2000){
@@ -423,9 +450,13 @@ document.getElementById('btnManualSignin').addEventListener('click', function(){
   if(!dept){ showToast('请输入企业/机构名称'); return; }
   const phone = document.getElementById('manualPhone').value.trim();
   const province = document.getElementById('manualProvince').value;
-  // 如果名单里有同名同号的，直接关联；否则新建
+  // 如果名单里有同名同号的，直接关联并更新信息；否则新建
   let person = data.attendees.find(a => a.name === name && a.phone === phone);
-  if(!person){
+  if(person){
+    // 用最新填写的信息覆盖旧数据（省份、企业名称等）
+    if(dept) person.dept = dept;
+    if(province) person.province = province;
+  } else {
     person = { id: 'm' + Date.now(), name, phone, dept: dept || '', province };
     data.attendees.push(person);
   }
@@ -578,6 +609,7 @@ function drawChinaMap(){
   });
 }
 function refreshAll(){
+  updateStatusBar();
   const currentTab = document.querySelector('.tab-content.active').id.replace('tab-', '');
   if(currentTab === 'dashboard') refreshDashboard();
   if(currentTab === 'signin'){
@@ -644,6 +676,7 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 // ==================== 初始化 ====================
 initProvinceSelects();
+updateStatusBar();
 renderSelectList();
 
 // 大屏自动刷新
