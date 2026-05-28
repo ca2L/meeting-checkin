@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>签到二维码</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center}
+.container{padding:40px 20px}
+h1{font-size:28px;font-weight:700;margin-bottom:8px;color:#f1f5f9}
+p.sub{color:rgba(255,255,255,.5);font-size:14px;margin-bottom:32px}
+.qr-wrapper{background:#fff;border-radius:16px;padding:24px;display:inline-block;margin-bottom:24px}
+.url-text{color:rgba(255,255,255,.6);font-size:13px;word-break:break-all;margin-bottom:8px}
+.copy-btn{display:inline-block;padding:8px 20px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;transition:all .2s}
+.copy-btn:hover{background:rgba(255,255,255,.15)}
+.tip{margin-top:20px;font-size:13px;color:rgba(255,255,255,.4)}
+.input-row{margin-bottom:24px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.input-row input{padding:10px 14px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e2e8f0;border-radius:8px;font-size:14px;width:320px;max-width:80vw;outline:none}
+.input-row input:focus{border-color:#3b82f6}
+.input-row button{padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>会议签到</h1>
+  <p class="sub">请使用手机扫描二维码进行签到</p>
+
+  <div class="input-row">
+    <input type="text" id="urlInput" placeholder="输入签到页面地址...">
+    <button id="generateBtn">生成二维码</button>
+  </div>
+
+  <div class="qr-wrapper">
+    <div id="qrcode"></div>
+  </div>
+
+  <div class="url-text" id="urlDisplay">请在上方输入签到页面地址</div>
+  <button class="copy-btn" id="copyBtn">复制链接</button>
+
+  <p class="tip">提示：将此页面投屏或打印，参会者用手机扫码即可签到</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+let qrcode = null;
+
+function genQR(url){
+  if(!url){ return; }
+  document.getElementById('qrcode').innerHTML = '';
+  qrcode = new QRCode(document.getElementById('qrcode'), {
+    text: url,
+    width: 256,
+    height: 256,
+    colorDark: '#1e293b',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+  document.getElementById('urlDisplay').textContent = url;
+}
+
+// 自动检测：如果当前页面和签到页同目录，自动生成
+const autoUrl = window.location.href.replace('qr-display.html', 'index.html');
+if(autoUrl !== window.location.href){
+  document.getElementById('urlInput').value = autoUrl;
+  genQR(autoUrl);
+}
+
+document.getElementById('generateBtn').addEventListener('click', function(){
+  genQR(document.getElementById('urlInput').value.trim());
+});
+
+document.getElementById('copyBtn').addEventListener('click', function(){
+  const url = document.getElementById('urlDisplay').textContent;
+  if(!url || url === '请在上方输入签到页面地址') return;
+  navigator.clipboard.writeText(url).then(() => {
+    this.textContent = '已复制!';
+    setTimeout(() => this.textContent = '复制链接', 2000);
+  }).catch(() => {
+    // fallback
+    const input = document.createElement('input');
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    this.textContent = '已复制!';
+    setTimeout(() => this.textContent = '复制链接', 2000);
+  });
+});
+</script>
+</body>
+</html>
