@@ -117,6 +117,8 @@ tbody tr:hover{background:#f8fafc}
 .dashboard-screen .checkin-item .name{font-weight:500;flex:1}
 .dashboard-screen .checkin-item .new-badge{font-size:10px;background:#f59e0b;color:#000;padding:2px 6px;border-radius:4px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes mapPulse{0%,100%{opacity:1}50%{opacity:.6}}
+.map-prov.pulse-anim{animation:mapPulse 2s infinite}
 
 /* Responsive */
 @media(max-width:480px){
@@ -184,6 +186,12 @@ tbody tr:hover{background:#f8fafc}
         <label>企业/机构名称 *</label>
         <input type="text" id="manualDept" placeholder="请输入企业或机构名称（必填）">
       </div>
+      <div class="form-group">
+        <label>所在省份/地区</label>
+        <select id="manualProvince">
+          <option value="">请选择省份</option>
+        </select>
+      </div>
       <button class="btn btn-primary btn-block" id="btnManualSignin">确认签到</button>
     </div>
   </div>
@@ -202,21 +210,29 @@ tbody tr:hover{background:#f8fafc}
 <!-- ==================== 签到大屏 ==================== -->
 <div class="tab-content" id="tab-dashboard">
   <div class="dashboard-screen" style="padding:16px">
-    <div style="max-width:900px;margin:0 auto">
-      <div style="text-align:center;padding:20px 0">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="text-align:center;padding:16px 0 8px">
         <h2 style="font-size:24px;font-weight:700;margin-bottom:4px">实时签到大屏</h2>
         <p style="color:rgba(255,255,255,.5);font-size:13px" id="dashTime"></p>
       </div>
-      <div class="stats-grid">
+      <div class="stats-grid" style="max-width:600px;margin:0 auto 16px">
         <div class="stat-card blue"><div class="num" id="dashTotal">0</div><div class="label">参会总人数</div></div>
         <div class="stat-card green"><div class="num" id="dashChecked">0</div><div class="label">已签到</div></div>
         <div class="stat-card red"><div class="num" id="dashUnchecked">0</div><div class="label">未签到</div></div>
       </div>
-      <div class="progress-bar"><div class="fill" id="dashProgress" style="width:0%"></div></div>
+      <div class="progress-bar" style="max-width:600px;margin:0 auto"><div class="fill" id="dashProgress" style="width:0%"></div></div>
       <p style="text-align:center;color:rgba(255,255,255,.6);font-size:14px;margin-top:6px">签到率 <span id="dashRate" style="color:#60a5fa;font-weight:600">0%</span></p>
+
+      <!-- 中国地图 -->
+      <div style="margin-top:20px;text-align:center">
+        <h3 style="font-size:16px;margin-bottom:8px;color:rgba(255,255,255,.7)">省份签到分布</h3>
+        <div id="chinaMap" style="max-width:700px;margin:0 auto"></div>
+        <div id="mapLegend" style="display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:12px;color:rgba(255,255,255,.6)"></div>
+      </div>
+
       <div style="margin-top:20px">
         <h3 style="font-size:16px;margin-bottom:12px;color:rgba(255,255,255,.7)">签到记录</h3>
-        <div class="checkin-list" id="dashCheckinList"></div>
+        <div class="checkin-list" id="dashCheckinList" style="max-height:300px"></div>
       </div>
     </div>
   </div>
@@ -243,6 +259,22 @@ function saveData(data){
 }
 
 let data = loadData();
+
+// 省份列表
+const PROVINCES = [
+  '北京','天津','上海','重庆','河北','山西','辽宁','吉林','黑龙江',
+  '江苏','浙江','安徽','福建','江西','山东','河南','湖北','湖南',
+  '广东','海南','四川','贵州','云南','陕西','甘肃','青海','台湾',
+  '内蒙古','广西','西藏','宁夏','新疆','香港','澳门'
+];
+
+// 初始化省份下拉框
+function initProvinceSelects(){
+  const opts = PROVINCES.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.querySelectorAll('select[id$="Province"]').forEach(sel => {
+    sel.innerHTML = '<option value="">请选择省份</option>' + opts;
+  });
+}
 
 function getStats(){
   const total = data.attendees.length;
@@ -375,10 +407,11 @@ document.getElementById('btnManualSignin').addEventListener('click', function(){
   const dept = document.getElementById('manualDept').value.trim();
   if(!dept){ showToast('请输入企业/机构名称'); return; }
   const phone = document.getElementById('manualPhone').value.trim();
+  const province = document.getElementById('manualProvince').value;
   // 如果名单里有同名同号的，直接关联；否则新建
   let person = data.attendees.find(a => a.name === name && a.phone === phone);
   if(!person){
-    person = { id: 'm' + Date.now(), name, phone, dept: dept || '' };
+    person = { id: 'm' + Date.now(), name, phone, dept: dept || '', province };
     data.attendees.push(person);
   }
   saveData(data);
@@ -386,6 +419,7 @@ document.getElementById('btnManualSignin').addEventListener('click', function(){
   document.getElementById('manualName').value = '';
   document.getElementById('manualPhone').value = '';
   document.getElementById('manualDept').value = '';
+  document.getElementById('manualProvince').value = '';
 });
 
 function doCheckin(id){
@@ -415,7 +449,119 @@ function doCheckin(id){
   showToast('签到成功！');
 }
 
-// ==================== 全量刷新 ====================
+// ==================== 中国地图 ====================
+// 简化的中国省份SVG路径数据（viewBox 0 0 600 500）
+const CHINA_MAP_DATA = {
+  '黑龙江': { path: 'M520,60 L560,55 L570,70 L575,95 L570,110 L560,120 L545,115 L530,105 L520,85 Z', cx: 540, cy: 88 },
+  '吉林': { path: 'M530,105 L545,115 L555,125 L550,140 L540,145 L525,140 L520,125 Z', cx: 538, cy: 125 },
+  '辽宁': { path: 'M520,125 L540,145 L535,155 L525,160 L515,155 L510,140 Z', cx: 525, cy: 143 },
+  '内蒙古': { path: 'M400,45 L460,35 L500,45 L520,60 L520,85 L510,95 L490,100 L460,95 L430,90 L400,80 L380,65 L370,55 Z', cx: 445, cy: 68 },
+  '北京': { path: 'M510,110 L518,110 L518,118 L510,118 Z', cx: 514, cy: 114 },
+  '天津': { path: 'M515,120 L523,120 L523,128 L515,128 Z', cx: 519, cy: 124 },
+  '河北': { path: 'M490,120 L510,110 L525,120 L525,140 L515,145 L500,145 L490,135 Z', cx: 508, cy: 130 },
+  '山东': { path: 'M500,145 L525,140 L540,155 L535,170 L520,175 L505,170 L495,160 Z', cx: 518, cy: 158 },
+  '山西': { path: 'M470,130 L490,120 L500,135 L495,150 L480,155 L465,150 L460,140 Z', cx: 480, cy: 140 },
+  '河南': { path: 'M460,155 L480,155 L500,160 L505,175 L495,185 L475,185 L460,175 L450,165 Z', cx: 478, cy: 170 },
+  '陕西': { path: 'M430,145 L460,140 L470,155 L460,170 L445,170 L430,160 Z', cx: 450, cy: 155 },
+  '甘肃': { path: 'M340,120 L370,115 L400,120 L430,130 L430,145 L410,150 L380,150 L350,145 L330,135 Z', cx: 380, cy: 135 },
+  '宁夏': { path: 'M400,125 L415,125 L415,135 L400,135 Z', cx: 408, cy: 130 },
+  '青海': { path: 'M280,150 L330,140 L350,145 L340,160 L320,175 L290,180 L270,170 Z', cx: 310, cy: 160 },
+  '新疆': { path: 'M100,40 L200,20 L280,40 L340,70 L340,100 L320,115 L300,120 L280,115 L240,120 L200,110 L160,100 L120,85 L100,65 Z', cx: 220, cy: 70 },
+  '西藏': { path: 'M100,120 L160,130 L220,145 L270,160 L270,180 L240,200 L200,210 L160,210 L120,200 L90,170 L85,150 Z', cx: 178, cy: 168 },
+  '四川': { path: 'M270,180 L320,175 L350,185 L370,200 L380,220 L350,235 L310,240 L280,235 L260,220 L255,200 Z', cx: 318, cy: 208 },
+  '重庆': { path: 'M370,200 L385,200 L385,212 L370,212 Z', cx: 378, cy: 206 },
+  '贵州': { path: 'M350,235 L380,235 L390,250 L375,265 L355,260 L340,250 Z', cx: 365, cy: 248 },
+  '云南': { path: 'M280,250 L320,250 L350,250 L355,270 L340,290 L310,305 L280,300 L260,285 L250,270 Z', cx: 303, cy: 275 },
+  '广西': { path: 'M340,265 L375,265 L390,280 L385,300 L365,310 L340,305 L325,290 L320,275 Z', cx: 355, cy: 288 },
+  '广东': { path: 'M390,300 L420,295 L440,305 L445,320 L435,335 L415,340 L395,335 L385,320 Z', cx: 415, cy: 318 },
+  '海南': { path: 'M390,350 L405,348 L408,358 L395,360 Z', cx: 400, cy: 354 },
+  '湖南': { path: 'M380,245 L400,250 L415,260 L410,275 L395,280 L380,275 L370,260 Z', cx: 393, cy: 262 },
+  '湖北': { path: 'M390,215 L415,220 L425,235 L415,250 L395,250 L380,240 L375,225 Z', cx: 400, cy: 233 },
+  '江西': { path: 'M420,250 L440,255 L450,268 L440,280 L425,278 L415,268 Z', cx: 433, cy: 265 },
+  '安徽': { path: 'M425,210 L450,215 L460,225 L455,240 L440,245 L425,240 L418,225 Z', cx: 439, cy: 228 },
+  '江苏': { path: 'M450,200 L475,200 L485,215 L478,230 L460,230 L448,220 Z', cx: 467, cy: 215 },
+  '上海': { path: 'M478,215 L485,215 L485,222 L478,222 Z', cx: 482, cy: 219 },
+  '浙江': { path: 'M455,240 L475,235 L485,248 L478,260 L460,260 L450,252 Z', cx: 468, cy: 248 },
+  '福建': { path: 'M440,270 L460,270 L470,285 L465,300 L450,305 L435,295 L430,280 Z', cx: 450, cy: 288 },
+  '台湾': { path: 'M475,300 L490,295 L495,310 L480,315 Z', cx: 485, cy: 305 },
+  '香港': { path: 'M420,340 L428,338 L430,345 L422,347 Z', cx: 425, cy: 343 },
+  '澳门': { path: 'M408,338 L414,337 L415,343 L409,344 Z', cx: 412, cy: 341 }
+};
+
+function drawChinaMap(){
+  const container = document.getElementById('chinaMap');
+  if(!container) return;
+
+  // 统计各省签到人数
+  const provinceStats = {};
+  Object.keys(data.checkins).forEach(id => {
+    const person = data.attendees.find(a => a.id === id);
+    if(person && person.province){
+      provinceStats[person.province] = (provinceStats[person.province] || 0) + 1;
+    }
+  });
+
+  const maxCount = Math.max(1, ...Object.values(provinceStats));
+  const hasData = Object.keys(provinceStats).length > 0;
+
+  // 颜色：未点亮为暗灰色，点亮按人数分3档
+  function getColor(count){
+    if(!count) return '#1e293b';
+    const ratio = count / maxCount;
+    if(ratio >= 0.7) return '#ef4444'; // 红 - 人多
+    if(ratio >= 0.3) return '#f59e0b'; // 橙 - 中等
+    return '#22c55e'; // 绿 - 人少
+  }
+
+  const paths = Object.entries(CHINA_MAP_DATA).map(([name, d]) => {
+    const count = provinceStats[name] || 0;
+    const color = getColor(count);
+    const pulse = count > 0 ? ' pulse-anim' : '';
+    return `<path d="${d.path}" data-prov="${name}" data-count="${count}"
+      fill="${color}" stroke="${count > 0 ? '#fff' : '#334155'}" stroke-width="${count > 0 ? '1.5' : '0.5'}"
+      class="map-prov${pulse}" style="cursor:pointer;transition:fill .5s">
+      <title>${name}${count > 0 ? ': ' + count + '人已签到' : ''}</title>
+    </path>`;
+  }).join('');
+
+  const labels = Object.entries(CHINA_MAP_DATA).map(([name, d]) => {
+    const count = provinceStats[name] || 0;
+    if(count === 0) return '';
+    return `<text x="${d.cx}" y="${d.cy}" text-anchor="middle" fill="#fff" font-size="8" font-weight="bold" style="pointer-events:none">${count}</text>`;
+  }).join('');
+
+  container.innerHTML = `<svg viewBox="0 0 600 500" style="width:100%;height:auto;max-height:420px">
+    <rect width="600" height="500" fill="#0f172a" rx="8"/>
+    ${paths}
+    ${labels}
+  </svg>`;
+
+  // 图例
+  const legend = document.getElementById('mapLegend');
+  if(legend){
+    if(!hasData){
+      legend.innerHTML = '<span>等待签到数据...</span>';
+    }else{
+      const litProvinces = Object.entries(provinceStats).sort((a,b) => b[1]-a[1]);
+      legend.innerHTML = litProvinces.map(([p,c]) =>
+        `<span style="background:${getColor(c)};padding:2px 8px;border-radius:4px;color:#fff">${p} ${c}人</span>`
+      ).join('');
+    }
+  }
+
+  // 添加hover效果
+  container.querySelectorAll('.map-prov').forEach(el => {
+    el.addEventListener('mouseenter', function(){
+      this.setAttribute('stroke', '#fbbf24');
+      this.setAttribute('stroke-width', '2.5');
+    });
+    el.addEventListener('mouseleave', function(){
+      const count = parseInt(this.dataset.count);
+      this.setAttribute('stroke', count > 0 ? '#fff' : '#334155');
+      this.setAttribute('stroke-width', count > 0 ? '1.5' : '0.5');
+    });
+  });
+}
 function refreshAll(){
   const currentTab = document.querySelector('.tab-content.active').id.replace('tab-', '');
   if(currentTab === 'dashboard') refreshDashboard();
@@ -434,6 +580,7 @@ function refreshDashboard(){
   document.getElementById('dashRate').textContent = stats.rate + '%';
   document.getElementById('dashTime').textContent = new Date().toLocaleString('zh-CN', { hour12: false });
 
+  // 签到记录列表
   const list = document.getElementById('dashCheckinList');
   const checkins = Object.entries(data.checkins).sort((a, b) => b[1].localeCompare(a[1]));
   if(checkins.length === 0){
@@ -453,6 +600,9 @@ function refreshDashboard(){
       </div>`;
     }).join('');
   }
+
+  // 绘制中国地图
+  drawChinaMap();
 }
 
 // ==================== Tab切换 ====================
@@ -477,6 +627,7 @@ document.querySelectorAll('#tabNav button').forEach(btn => {
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ==================== 初始化 ====================
+initProvinceSelects();
 renderSelectList();
 
 // 大屏自动刷新
